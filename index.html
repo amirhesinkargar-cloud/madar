@@ -1,1 +1,729 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مدار | MADAR</title>
 
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --bg:#f3f5f9;
+  --panel:#ffffff;
+  --text:#202536;
+  --muted:#8b93a5;
+  --border:#edf0f5;
+  --primary:#7657e8;
+  --primary-light:#f0edff;
+  --message:#7657e8;
+  --other:#f0f2f7;
+}
+
+* {
+  box-sizing:border-box;
+  margin:0;
+  padding:0;
+}
+
+body {
+  font-family:'Vazirmatn',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  height:100vh;
+  overflow:hidden;
+}
+
+.app {
+  display:flex;
+  height:100vh;
+  padding:14px;
+  gap:14px;
+}
+
+.sidebar {
+  width:340px;
+  min-width:300px;
+  background:var(--panel);
+  border-radius:20px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  border:1px solid var(--border);
+}
+
+.brand {
+  padding:24px 22px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.logo {
+  width:48px;
+  height:48px;
+  background:linear-gradient(135deg,#9678ff,#6444df);
+  color:white;
+  border-radius:15px;
+  display:grid;
+  place-items:center;
+  font-size:25px;
+  font-weight:800;
+  box-shadow:0 5px 15px #7657e833;
+}
+
+.brand h1 {
+  font-size:23px;
+  font-weight:800;
+}
+
+.brand small {
+  display:block;
+  color:var(--muted);
+  font-size:11px;
+  letter-spacing:3px;
+}
+
+.search {
+  margin:0 17px 15px;
+  position:relative;
+}
+
+.search input {
+  width:100%;
+  padding:13px 43px 13px 12px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:var(--bg);
+  outline:none;
+  font-family:inherit;
+  font-size:13px;
+}
+
+.search span {
+  position:absolute;
+  right:14px;
+  top:11px;
+  font-size:17px;
+}
+
+.section-title {
+  padding:12px 20px;
+  display:flex;
+  justify-content:space-between;
+  color:var(--muted);
+  font-size:12px;
+}
+
+.new-chat {
+  border:0;
+  background:var(--primary-light);
+  color:var(--primary);
+  padding:7px 12px;
+  border-radius:9px;
+  font-family:inherit;
+  cursor:pointer;
+}
+
+.chat-list {
+  flex:1;
+  overflow-y:auto;
+}
+
+.chat-item {
+  display:flex;
+  align-items:center;
+  padding:13px 16px;
+  gap:12px;
+  cursor:pointer;
+  transition:.2s;
+}
+
+.chat-item:hover,
+.chat-item.active {
+  background:var(--primary-light);
+}
+
+.avatar {
+  width:49px;
+  height:49px;
+  min-width:49px;
+  border-radius:16px;
+  display:grid;
+  place-items:center;
+  font-size:19px;
+  font-weight:700;
+  color:white;
+  background:linear-gradient(135deg,#9c83ff,#6748d9);
+}
+
+.chat-info {
+  flex:1;
+  min-width:0;
+}
+
+.chat-info strong {
+  display:block;
+  font-size:14px;
+  margin-bottom:5px;
+}
+
+.chat-info p {
+  font-size:12px;
+  color:var(--muted);
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.chat-time {
+  font-size:10px;
+  color:var(--muted);
+}
+
+.sidebar-footer {
+  border-top:1px solid var(--border);
+  padding:15px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.sidebar-footer .avatar {
+  width:42px;
+  height:42px;
+  min-width:42px;
+  border-radius:50%;
+}
+
+.user-info {
+  flex:1;
+}
+
+.user-info strong {
+  font-size:13px;
+}
+
+.user-info p {
+  color:var(--muted);
+  font-size:11px;
+}
+
+.icon-btn {
+  border:0;
+  background:transparent;
+  font-size:20px;
+  cursor:pointer;
+  color:var(--muted);
+}
+
+.main {
+  flex:1;
+  background:var(--panel);
+  border-radius:20px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  border:1px solid var(--border);
+  min-width:0;
+}
+
+.chat-header {
+  padding:15px 22px;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  border-bottom:1px solid var(--border);
+  min-height:80px;
+}
+
+.chat-header .avatar {
+  width:45px;
+  height:45px;
+  min-width:45px;
+  border-radius:14px;
+}
+
+.header-info {
+  flex:1;
+}
+
+.header-info strong {
+  font-size:15px;
+}
+
+.header-info p {
+  font-size:11px;
+  color:#21b77a;
+  margin-top:4px;
+}
+
+.header-actions {
+  display:flex;
+  gap:18px;
+}
+
+.header-actions button {
+  background:none;
+  border:0;
+  font-size:20px;
+  cursor:pointer;
+}
+
+.messages {
+  flex:1;
+  padding:25px;
+  overflow-y:auto;
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+}
+
+.date {
+  align-self:center;
+  font-size:11px;
+  color:var(--muted);
+  background:var(--bg);
+  padding:7px 15px;
+  border-radius:20px;
+}
+
+.message {
+  max-width:75%;
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+}
+
+.message.mine {
+  align-self:flex-start;
+}
+
+.message.theirs {
+  align-self:flex-end;
+}
+
+.bubble {
+  padding:12px 16px;
+  border-radius:16px;
+  font-size:13px;
+  line-height:2;
+  overflow-wrap:anywhere;
+}
+
+.mine .bubble {
+  background:var(--message);
+  color:white;
+  border-bottom-left-radius:4px;
+}
+
+.theirs .bubble {
+  background:var(--other);
+  color:var(--text);
+  border-bottom-right-radius:4px;
+}
+
+.message small {
+  color:var(--muted);
+  font-size:10px;
+}
+
+.composer {
+  padding:17px 20px;
+  border-top:1px solid var(--border);
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+
+.composer input {
+  flex:1;
+  border:0;
+  outline:none;
+  background:var(--bg);
+  border-radius:14px;
+  padding:15px;
+  font-family:inherit;
+  font-size:13px;
+  min-width:0;
+}
+
+.send {
+  width:48px;
+  height:48px;
+  border:0;
+  border-radius:15px;
+  color:white;
+  background:var(--primary);
+  font-size:20px;
+  cursor:pointer;
+}
+
+.send:hover {
+  opacity:.85;
+}
+
+.empty {
+  margin:auto;
+  text-align:center;
+  color:var(--muted);
+}
+
+.empty div {
+  font-size:55px;
+  margin-bottom:15px;
+}
+
+.empty h2 {
+  color:var(--text);
+  font-size:21px;
+  margin-bottom:8px;
+}
+
+.mobile-back {
+  display:none;
+}
+
+body.dark {
+  --bg:#151722;
+  --panel:#202331;
+  --text:#f3f4fa;
+  --muted:#9ca2b3;
+  --border:#303446;
+  --primary:#9277ff;
+  --primary-light:#302b49;
+  --other:#303446;
+}
+
+@media(max-width:700px) {
+  .app {
+    padding:0;
+    gap:0;
+  }
+
+  .sidebar {
+    width:100%;
+    min-width:0;
+    border-radius:0;
+    border:0;
+  }
+
+  .main {
+    display:none;
+    position:absolute;
+    inset:0;
+    border-radius:0;
+    border:0;
+  }
+
+  body.chat-open .sidebar {
+    display:none;
+  }
+
+  body.chat-open .main {
+    display:flex;
+  }
+
+  .mobile-back {
+    display:block;
+  }
+
+  .messages {
+    padding:18px 13px;
+  }
+
+  .chat-header {
+    padding:12px;
+  }
+
+  .composer {
+    padding:12px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="app">
+
+<aside class="sidebar">
+
+  <div class="brand">
+    <div class="logo">م</div>
+    <div>
+      <h1>مدار</h1>
+      <small>MADAR MESSENGER</small>
+    </div>
+  </div>
+
+  <div class="search">
+    <span>⌕</span>
+    <input id="search" placeholder="جست‌وجوی گفتگو...">
+  </div>
+
+  <div class="section-title">
+    <span>گفتگوهای شما</span>
+    <button class="new-chat" onclick="newChat()">+ گفتگوی جدید</button>
+  </div>
+
+  <div class="chat-list" id="chatList"></div>
+
+  <div class="sidebar-footer">
+    <div class="avatar">م</div>
+    <div class="user-info">
+      <strong>کاربر مدار</strong>
+      <p>حساب آزمایشی</p>
+    </div>
+    <button class="icon-btn" onclick="toggleDark()">◐</button>
+  </div>
+
+</aside>
+
+<main class="main">
+
+  <div class="chat-header" id="chatHeader">
+    <div class="empty">
+      <div>🪐</div>
+      <h2>به مدار خوش آمدی</h2>
+      <p>یک گفتگو انتخاب کن و شروع کن.</p>
+    </div>
+  </div>
+
+  <div class="messages" id="messages">
+    <div class="empty">
+      <div>💬</div>
+      <h2>مدار؛ دنیای ارتباطات</h2>
+      <p>گفتگوی خودت را انتخاب کن.</p>
+    </div>
+  </div>
+
+  <form class="composer" id="sendForm">
+    <input id="messageInput" placeholder="پیامت را بنویس..." autocomplete="off">
+    <button class="send" type="submit">➤</button>
+  </form>
+
+</main>
+
+</div>
+
+<script>
+
+const initialChats = [
+  {
+    id:1,
+    name:"تیم مدار",
+    avatar:"م",
+    color:"#7657e8",
+    messages:[
+      {text:"به مدار خوش آمدید! 🚀",mine:false,time:"16:00"},
+      {text:"این اولین نسخه پیام‌رسان ماست.",mine:false,time:"16:01"}
+    ]
+  },
+  {
+    id:2,
+    name:"دوست من",
+    avatar:"د",
+    color:"#ed8c62",
+    messages:[
+      {text:"سلام! خوبی؟",mine:false,time:"15:30"}
+    ]
+  },
+  {
+    id:3,
+    name:"گفتگوی آزمایشی",
+    avatar:"گ",
+    color:"#36a99b",
+    messages:[
+      {text:"مدار آماده توسعه است.",mine:false,time:"14:20"}
+    ]
+  }
+];
+
+let chats = JSON.parse(localStorage.getItem("madar_chats") || "null") || initialChats;
+let activeChat = null;
+
+const chatList = document.getElementById("chatList");
+const messages = document.getElementById("messages");
+const chatHeader = document.getElementById("chatHeader");
+
+function save(){
+  localStorage.setItem("madar_chats",JSON.stringify(chats));
+}
+
+function renderChats(){
+
+  const query = document.getElementById("search").value.toLowerCase();
+
+  chatList.innerHTML = "";
+
+  chats.filter(c=>c.name.toLowerCase().includes(query))
+  .forEach(c=>{
+
+    const last = c.messages[c.messages.length-1];
+
+    const item = document.createElement("div");
+
+    item.className = "chat-item " + (activeChat===c.id?"active":"");
+
+    item.innerHTML = `
+      <div class="avatar" style="background:${c.color}">
+        ${c.avatar}
+      </div>
+      <div class="chat-info">
+        <strong></strong>
+        <p></p>
+      </div>
+      <span class="chat-time">${last ? last.time : ""}</span>
+    `;
+
+    item.querySelector("strong").textContent = c.name;
+    item.querySelector("p").textContent = last ? last.text : "شروع گفتگو";
+
+    item.onclick = ()=>openChat(c.id);
+
+    chatList.appendChild(item);
+
+  });
+
+}
+
+function openChat(id){
+
+  activeChat = id;
+
+  const chat = chats.find(c=>c.id===id);
+
+  document.body.classList.add("chat-open");
+
+  chatHeader.innerHTML = `
+    <button class="icon-btn mobile-back" onclick="back()">→</button>
+    <div class="avatar" style="background:${chat.color}">
+      ${chat.avatar}
+    </div>
+    <div class="header-info">
+      <strong></strong>
+      <p>گفتگوی آزمایشی</p>
+    </div>
+    <div class="header-actions">
+      <button onclick="toggleDark()">◐</button>
+      <button onclick="showInfo()">ⓘ</button>
+    </div>
+  `;
+
+  chatHeader.querySelector(".header-info strong").textContent=chat.name;
+
+  renderMessages();
+  renderChats();
+
+}
+
+function renderMessages(){
+
+  const chat = chats.find(c=>c.id===activeChat);
+
+  messages.innerHTML = '<div class="date">گفتگوی شما در مدار</div>';
+
+  chat.messages.forEach(m=>{
+
+    const div = document.createElement("div");
+
+    div.className = "message " + (m.mine?"mine":"theirs");
+
+    const bubble = document.createElement("div");
+    bubble.className="bubble";
+    bubble.textContent=m.text;
+
+    const time=document.createElement("small");
+    time.textContent=m.time;
+
+    div.appendChild(bubble);
+    div.appendChild(time);
+
+    messages.appendChild(div);
+
+  });
+
+  messages.scrollTop=messages.scrollHeight;
+
+}
+
+document.getElementById("sendForm").addEventListener("submit",function(e){
+
+  e.preventDefault();
+
+  const input=document.getElementById("messageInput");
+  const text=input.value.trim();
+
+  if(!text || activeChat===null)return;
+
+  const chat=chats.find(c=>c.id===activeChat);
+
+  const now=new Date();
+
+  const time=now.toLocaleTimeString("fa-IR",{
+    hour:"2-digit",
+    minute:"2-digit"
+  });
+
+  chat.messages.push({
+    text:text,
+    mine:true,
+    time:time
+  });
+
+  input.value="";
+
+  save();
+  renderMessages();
+  renderChats();
+
+});
+
+function newChat(){
+
+  const name=prompt("نام مخاطب را وارد کن:");
+
+  if(!name || !name.trim())return;
+
+  const chat={
+    id:Date.now(),
+    name:name.trim(),
+    avatar:name.trim().charAt(0),
+    color:"#7657e8",
+    messages:[]
+  };
+
+  chats.unshift(chat);
+
+  save();
+  renderChats();
+  openChat(chat.id);
+
+}
+
+function toggleDark(){
+  document.body.classList.toggle("dark");
+  localStorage.setItem("madar_dark",document.body.classList.contains("dark"));
+}
+
+function back(){
+  document.body.classList.remove("chat-open");
+}
+
+function showInfo(){
+  alert("مدار | MADAR\nنسخه اولیه رابط کاربری");
+}
+
+document.getElementById("search").addEventListener("input",renderChats);
+
+if(localStorage.getItem("madar_dark")==="true"){
+  document.body.classList.add("dark");
+}
+
+renderChats();
+
+</script>
+
+</body>
+    </html>
