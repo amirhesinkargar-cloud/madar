@@ -4,10 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ثبت‌نام | مدار</title>
-
   <style>
     * { box-sizing: border-box; }
-
     body {
       margin: 0;
       min-height: 100vh;
@@ -18,7 +16,6 @@
       font-family: Tahoma, sans-serif;
       padding: 20px;
     }
-
     .box {
       width: 100%;
       max-width: 400px;
@@ -26,14 +23,8 @@
       padding: 30px;
       border-radius: 18px;
     }
-
-    h1 { text-align: center; }
-
-    p {
-      text-align: center;
-      color: #aab7ca;
-    }
-
+    h1, p { text-align: center; }
+    p { color: #aab7ca; }
     input, button {
       width: 100%;
       padding: 14px;
@@ -41,13 +32,11 @@
       border-radius: 9px;
       font-size: 15px;
     }
-
     input {
       background: #101827;
       border: 1px solid #39485d;
       color: white;
     }
-
     button {
       border: none;
       background: #3985ff;
@@ -55,14 +44,6 @@
       cursor: pointer;
       font-weight: bold;
     }
-
-    button:disabled { opacity: .6; }
-
-    a {
-      color: #65a1ff;
-      text-decoration: none;
-    }
-
     #message {
       line-height: 2;
       text-align: center;
@@ -71,36 +52,23 @@
     }
   </style>
 </head>
-
 <body>
-
   <div class="box">
     <h1>مدار</h1>
     <p>ساخت حساب کاربری جدید</p>
 
     <form id="registerForm">
-      <input id="username" type="text"
-        placeholder="نام کاربری" required minlength="3">
-
-      <input id="displayName" type="text"
-        placeholder="نام نمایشی" required>
-
-      <input id="email" type="email"
-        placeholder="ایمیل" required>
-
+      <input id="username" placeholder="نام کاربری" required minlength="3">
+      <input id="displayName" placeholder="نام نمایشی" required>
+      <input id="email" type="email" placeholder="ایمیل" required>
       <input id="password" type="password"
         placeholder="رمز عبور (حداقل ۸ کاراکتر)"
         required minlength="8">
-
       <button id="submitBtn" type="submit">ثبت‌نام</button>
     </form>
 
     <div id="message"></div>
-
-    <p>
-      قبلاً حساب ساخته‌ای؟
-      <a href="./login.html">وارد شو</a>
-    </p>
+    <p>قبلاً حساب ساخته‌ای؟ <a href="./login.html">وارد شو</a></p>
   </div>
 
   <script type="module">
@@ -113,20 +81,13 @@
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
 
-      const username = document.getElementById('username')
-        .value.trim().toLowerCase();
-
-      const displayName = document.getElementById('displayName')
-        .value.trim();
-
-      const email = document.getElementById('email')
-        .value.trim();
-
+      const username = document.getElementById('username').value.trim().toLowerCase();
+      const displayName = document.getElementById('displayName').value.trim();
+      const email = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
 
       if (!/^[a-z0-9_]{3,20}$/.test(username)) {
-        message.textContent =
-          'نام کاربری باید ۳ تا ۲۰ حرف انگلیسی، عدد یا زیرخط باشد.';
+        message.textContent = 'نام کاربری باید ۳ تا ۲۰ حرف انگلیسی، عدد یا زیرخط باشد.';
         return;
       }
 
@@ -147,34 +108,23 @@
 
         if (error) throw error;
 
-        if (data.session && data.user) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert({
-              id: data.user.id,
-              username,
-              display_name: displayName
-            });
-
-          if (profileError) throw profileError;
-
-          message.textContent = 'حساب ساخته شد! در حال انتقال...';
-          setTimeout(() => {
-            location.href = './index.html';
-          }, 1200);
-
-        } else {
-          message.textContent =
-            'حساب ساخته شد. ایمیلت را برای تأیید بررسی کن.';
+        if (data.session) {
+          message.textContent = 'حساب ساخته شد؛ در حال انتقال...';
+          location.href = './index.html';
+          return;
         }
+
+        if (data.user && data.user.identities?.length === 0) {
+          throw new Error('این ایمیل قبلاً ثبت‌نام کرده است.');
+        }
+
+        location.href = './verify.html?email=' + encodeURIComponent(email);
 
       } catch (error) {
         message.textContent = 'خطا: ' + error.message;
+        button.disabled = false;
       }
-
-      button.disabled = false;
     });
   </script>
-
 </body>
 </html>
