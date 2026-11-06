@@ -95,16 +95,17 @@
       message.textContent = 'در حال ساخت حساب...';
 
       try {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              username,
-              display_name: displayName
-            }
-          }
-        });
+      const { data, error } = await supabase.auth.signUp({
+  email,
+  password,
+  options: {
+    emailRedirectTo: 'https://amirhesinkargar-cloud.github.io/madar/',
+    data: {
+      username,
+      display_name: displayName
+    }
+  }
+});
 
         if (error) throw error;
 
