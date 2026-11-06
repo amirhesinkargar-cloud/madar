@@ -507,222 +507,354 @@ body.dark {
 
 </div>
 
-<script>
+<script type="module">
+import { supabase } from './supabase.js';
 
-const initialChats = [
-  {
-    id:1,
-    name:"تیم مدار",
-    avatar:"م",
-    color:"#7657e8",
-    messages:[
-      {text:"به مدار خوش آمدید! 🚀",mine:false,time:"16:00"},
-      {text:"این اولین نسخه پیام‌رسان ماست.",mine:false,time:"16:01"}
-    ]
-  },
-  {
-    id:2,
-    name:"دوست من",
-    avatar:"د",
-    color:"#ed8c62",
-    messages:[
-      {text:"سلام! خوبی؟",mine:false,time:"15:30"}
-    ]
-  },
-  {
-    id:3,
-    name:"گفتگوی آزمایشی",
-    avatar:"گ",
-    color:"#36a99b",
-    messages:[
-      {text:"مدار آماده توسعه است.",mine:false,time:"14:20"}
-    ]
-  }
-];
-
-let chats = JSON.parse(localStorage.getItem("madar_chats") || "null") || initialChats;
+let currentUser = null;
+let chats = [];
 let activeChat = null;
+let realtimeChannel = null;
 
-const chatList = document.getElementById("chatList");
-const messages = document.getElementById("messages");
-const chatHeader = document.getElementById("chatHeader");
+const chatList = document.getElementById('chatList');
+const messages = document.getElementById('messages');
+const chatHeader = document.getElementById('chatHeader');
+const sendForm = document.getElementById('sendForm');
+const messageInput = document.getElementById('messageInput');
 
-function save(){
-  localStorage.setItem("madar_chats",JSON.stringify(chats));
+function showError(message) {
+  alert(message);
 }
 
-function renderChats(){
+function formatTime(value) {
+  if (!value) return '';
+  return new Date(value).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
+}
 
-  const query = document.getElementById("search").value.toLowerCase();
+function initials(name) {
+  return (name || '?').trim().charAt(0) || '?';
+}
 
-  chatList.innerHTML = "";
+function getChatName(chat) {
+  return chat.otherProfile?.display_name || chat.otherProfile?.username || chat.title || 'گفتگو';
+}
 
-  chats.filter(c=>c.name.toLowerCase().includes(query))
-  .forEach(c=>{
+function renderChats() {
+  const query = document.getElementById('search').value.trim().toLowerCase();
+  chatList.innerHTML = '';
 
-    const last = c.messages[c.messages.length-1];
+  const filtered = chats.filter(chat => getChatName(chat).toLowerCase().includes(query) ||
+    (chat.otherProfile?.username || '').toLowerCase().includes(query));
 
-    const item = document.createElement("div");
+  if (!filtered.length) {
+    const empty = document.createElement('div');
+    empty.className = 'empty';
+    empty.style.padding = '25px 12px';
+    empty.textContent = chats.length ? 'گفتگویی پیدا نشد.' : 'هنوز گفتگویی نداری؛ از «گفتگوی جدید» شروع کن.';
+    chatList.appendChild(empty);
+    return;
+  }
 
-    item.className = "chat-item " + (activeChat===c.id?"active":"");
-
-    item.innerHTML = `
-      <div class="avatar" style="background:${c.color}">
-        ${c.avatar}
-      </div>
-      <div class="chat-info">
-        <strong></strong>
-        <p></p>
-      </div>
-      <span class="chat-time">${last ? last.time : ""}</span>
-    `;
-
-    item.querySelector("strong").textContent = c.name;
-    item.querySelector("p").textContent = last ? last.text : "شروع گفتگو";
-
-    item.onclick = ()=>openChat(c.id);
-
+  filtered.forEach(chat => {
+    const last = chat.lastMessage;
+    const item = document.createElement('div');
+    item.className = 'chat-item ' + (activeChat === chat.id ? 'active' : '');
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = initials(getChatName(chat));
+    const info = document.createElement('div');
+    info.className = 'chat-info';
+    const strong = document.createElement('strong');
+    strong.textContent = getChatName(chat);
+    const preview = document.createElement('p');
+    preview.textContent = last ? last.content : 'شروع گفتگو';
+    const time = document.createElement('span');
+    time.className = 'chat-time';
+    time.textContent = last ? formatTime(last.created_at) : '';
+    info.append(strong, preview);
+    item.append(avatar, info, time);
+    item.addEventListener('click', () => openChat(chat.id));
     chatList.appendChild(item);
-
   });
-
 }
 
-function openChat(id){
+function renderMessages() {
+  const chat = chats.find(item => item.id === activeChat);
+  messages.innerHTML = '';
+  if (!chat) {
+    messages.innerHTML = '<div class="empty"><div>💬</div><h2>مدار؛ دنیای ارتباطات</h2><p>یک گفتگو را انتخاب کن.</p></div>';
+    return;
+  }
+  const date = document.createElement('div');
+  date.className = 'date';
+  date.textContent = 'گفتگوی شما در مدار';
+  messages.appendChild(date);
 
+  chat.messages.forEach(message => {
+    const row = document.createElement('div');
+    row.className = 'message ' + (message.sender_id === currentUser.id ? 'mine' : 'theirs');
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = message.content;
+    const time = document.createElement('small');
+    time.textContent = formatTime(message.created_at);
+    row.append(bubble, time);
+    messages.appendChild(row);
+  });
+  messages.scrollTop = messages.scrollHeight;
+}
+
+async function loadMessages(conversationId) {
+  const { data, error } = await supabase
+    .from('messages')
+    .select('id, conversation_id, sender_id, content, created_at')
+    .eq('conversation_id', conversationId)
+    .order('created_at', { ascending: true });
+  if (error) throw error;
+  const chat = chats.find(item => item.id === conversationId);
+  if (chat) {
+    chat.messages = data || [];
+    chat.lastMessage = chat.messages[chat.messages.length - 1] || null;
+  }
+  renderMessages();
+  renderChats();
+}
+
+async function openChat(id) {
   activeChat = id;
-
-  const chat = chats.find(c=>c.id===id);
-
-  document.body.classList.add("chat-open");
+  document.body.classList.add('chat-open');
+  const chat = chats.find(item => item.id === id);
+  if (!chat) return;
 
   chatHeader.innerHTML = `
-    <button class="icon-btn mobile-back" onclick="back()">→</button>
-    <div class="avatar" style="background:${chat.color}">
-      ${chat.avatar}
-    </div>
-    <div class="header-info">
-      <strong></strong>
-      <p>گفتگوی آزمایشی</p>
-    </div>
-    <div class="header-actions">
-      <button onclick="toggleDark()">◐</button>
-      <button onclick="showInfo()">ⓘ</button>
-    </div>
-  `;
+    <button class="icon-btn mobile-back" id="mobileBack" type="button">→</button>
+    <div class="avatar" id="headerAvatar"></div>
+    <div class="header-info"><strong id="headerName"></strong><p>گفتگوی خصوصی در مدار</p></div>
+    <div class="header-actions"><button id="darkHeader" type="button">◐</button><button id="infoHeader" type="button">ⓘ</button></div>`;
+  chatHeader.querySelector('#headerAvatar').textContent = initials(getChatName(chat));
+  chatHeader.querySelector('#headerName').textContent = getChatName(chat);
+  chatHeader.querySelector('#mobileBack').addEventListener('click', back);
+  chatHeader.querySelector('#darkHeader').addEventListener('click', toggleDark);
+  chatHeader.querySelector('#infoHeader').addEventListener('click', showInfo);
 
-  chatHeader.querySelector(".header-info strong").textContent=chat.name;
-
-  renderMessages();
+  if (realtimeChannel) {
+    await supabase.removeChannel(realtimeChannel);
+    realtimeChannel = null;
+  }
+  try {
+    await loadMessages(id);
+    realtimeChannel = supabase
+      .channel('messages-' + id)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'messages',
+        filter: 'conversation_id=eq.' + id
+      }, async payload => {
+        const existing = chats.find(item => item.id === id)?.messages || [];
+        if (!existing.some(message => message.id === payload.new.id)) {
+          await loadMessages(id);
+        }
+      })
+      .subscribe();
+  } catch (error) {
+    console.error(error);
+    showError('گفتگو بارگذاری نشد. بررسی کن جدول‌ها و دسترسی‌های دیتابیس درست باشند.\n' + error.message);
+  }
   renderChats();
-
 }
 
-function renderMessages(){
+async function loadChats() {
+  const { data: memberships, error: membershipError } = await supabase
+    .from('conversation_members')
+    .select('conversation_id')
+    .eq('user_id', currentUser.id);
+  if (membershipError) throw membershipError;
 
-  const chat = chats.find(c=>c.id===activeChat);
+  const ids = [...new Set((memberships || []).map(row => row.conversation_id))];
+  chats = [];
+  if (!ids.length) {
+    renderChats();
+    renderMessages();
+    return;
+  }
 
-  messages.innerHTML = '<div class="date">گفتگوی شما در مدار</div>';
+  const { data: conversations, error: conversationError } = await supabase
+    .from('conversations')
+    .select('id, title, is_group, created_by, created_at')
+    .in('id', ids)
+    .order('created_at', { ascending: false });
+  if (conversationError) throw conversationError;
 
-  chat.messages.forEach(m=>{
+  for (const conversation of (conversations || [])) {
+    const { data: members, error: membersError } = await supabase
+      .from('conversation_members')
+      .select('user_id')
+      .eq('conversation_id', conversation.id);
+    if (membersError) throw membersError;
+    const otherMember = (members || []).find(member => member.user_id !== currentUser.id);
+    let otherProfile = null;
+    if (otherMember) {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, username, display_name, avatar_url')
+        .eq('id', otherMember.user_id)
+        .maybeSingle();
+      if (profileError) throw profileError;
+      otherProfile = profile;
+    }
+    chats.push({ ...conversation, otherProfile, messages: [], lastMessage: null });
+  }
 
-    const div = document.createElement("div");
-
-    div.className = "message " + (m.mine?"mine":"theirs");
-
-    const bubble = document.createElement("div");
-    bubble.className="bubble";
-    bubble.textContent=m.text;
-
-    const time=document.createElement("small");
-    time.textContent=m.time;
-
-    div.appendChild(bubble);
-    div.appendChild(time);
-
-    messages.appendChild(div);
-
-  });
-
-  messages.scrollTop=messages.scrollHeight;
-
+  for (const chat of chats) {
+    const { data: latest, error: latestError } = await supabase
+      .from('messages')
+      .select('id, conversation_id, sender_id, content, created_at')
+      .eq('conversation_id', chat.id)
+      .order('created_at', { ascending: false })
+      .limit(1);
+    if (latestError) throw latestError;
+    chat.lastMessage = latest?.[0] || null;
+  }
+  renderChats();
+  renderMessages();
 }
 
-document.getElementById("sendForm").addEventListener("submit",function(e){
+async function newChat() {
+  const raw = prompt('نام کاربری مخاطب را وارد کن:');
+  if (!raw || !raw.trim()) return;
+  const username = raw.trim().replace(/^@/, '').toLowerCase();
+  if (username === (currentUser.user_metadata?.username || '').toLowerCase()) {
+    showError('نمی‌توانی با خودت گفتگو بسازی.');
+    return;
+  }
 
-  e.preventDefault();
+  try {
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .eq('username', username)
+      .maybeSingle();
+    if (profileError) throw profileError;
+    if (!profile) {
+      showError('این نام کاربری پیدا نشد. ابتدا مخاطبت باید در مدار ثبت‌نام کرده باشد و پروفایل داشته باشد.');
+      return;
+    }
+    if (profile.id === currentUser.id) {
+      showError('نمی‌توانی با خودت گفتگو بسازی.');
+      return;
+    }
 
-  const input=document.getElementById("messageInput");
-  const text=input.value.trim();
+    const { data: myMemberships, error: myMembershipError } = await supabase
+      .from('conversation_members')
+      .select('conversation_id')
+      .eq('user_id', currentUser.id);
+    if (myMembershipError) throw myMembershipError;
 
-  if(!text || activeChat===null)return;
+    let existingId = null;
+    for (const membership of (myMemberships || [])) {
+      const { data: members, error: membersError } = await supabase
+        .from('conversation_members')
+        .select('user_id')
+        .eq('conversation_id', membership.conversation_id);
+      if (membersError) throw membersError;
+      const ids = (members || []).map(member => member.user_id).sort();
+      if (ids.length === 2 && ids.includes(currentUser.id) && ids.includes(profile.id)) {
+        existingId = membership.conversation_id;
+        break;
+      }
+    }
 
-  const chat=chats.find(c=>c.id===activeChat);
+    if (existingId) {
+      await loadChats();
+      await openChat(existingId);
+      return;
+    }
 
-  const now=new Date();
+    const { data: conversation, error: createError } = await supabase
+      .from('conversations')
+      .insert({ created_by: currentUser.id, is_group: false })
+      .select('id, title, is_group, created_by, created_at')
+      .single();
+    if (createError) throw createError;
 
-  const time=now.toLocaleTimeString("fa-IR",{
-    hour:"2-digit",
-    minute:"2-digit"
-  });
+    const { error: memberError } = await supabase.from('conversation_members').insert([
+      { conversation_id: conversation.id, user_id: currentUser.id },
+      { conversation_id: conversation.id, user_id: profile.id }
+    ]);
+    if (memberError) throw memberError;
 
-  chat.messages.push({
-    text:text,
-    mine:true,
-    time:time
-  });
+    await loadChats();
+    await openChat(conversation.id);
+  } catch (error) {
+    console.error(error);
+    showError('ساخت گفتگو ناموفق بود.\n' + error.message);
+  }
+}
 
-  input.value="";
-
-  save();
-  renderMessages();
-  renderChats();
-
+sendForm.addEventListener('submit', async event => {
+  event.preventDefault();
+  const content = messageInput.value.trim();
+  if (!content || !activeChat) return;
+  const chat = chats.find(item => item.id === activeChat);
+  if (!chat) return;
+  messageInput.disabled = true;
+  try {
+    const { error } = await supabase.from('messages').insert({
+      conversation_id: activeChat,
+      sender_id: currentUser.id,
+      content
+    });
+    if (error) throw error;
+    messageInput.value = '';
+    await loadMessages(activeChat);
+  } catch (error) {
+    console.error(error);
+    showError('پیام ارسال نشد.\n' + error.message);
+  } finally {
+    messageInput.disabled = false;
+    messageInput.focus();
+  }
 });
 
-function newChat(){
+function toggleDark() {
+  document.body.classList.toggle('dark');
+  localStorage.setItem('madar_dark', document.body.classList.contains('dark'));
+}
+function back() { document.body.classList.remove('chat-open'); }
+function showInfo() { alert('مدار | MADAR\nپیام‌رسان خصوصی'); }
 
-  const name=prompt("نام مخاطب را وارد کن:");
+// توابعی که در HTML با onclick صدا زده می‌شوند باید روی window باشند.
+window.newChat = newChat;
+window.toggleDark = toggleDark;
+window.back = back;
+window.showInfo = showInfo;
 
-  if(!name || !name.trim())return;
+document.getElementById('search').addEventListener('input', renderChats);
+if (localStorage.getItem('madar_dark') === 'true') document.body.classList.add('dark');
 
-  const chat={
-    id:Date.now(),
-    name:name.trim(),
-    avatar:name.trim().charAt(0),
-    color:"#7657e8",
-    messages:[]
-  };
-
-  chats.unshift(chat);
-
-  save();
-  renderChats();
-  openChat(chat.id);
-
+async function startApp() {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  if (!session) {
+    location.replace('./login.html');
+    return;
+  }
+  currentUser = session.user;
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('username, display_name')
+    .eq('id', currentUser.id)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  const displayName = profile?.display_name || profile?.username || currentUser.email || 'کاربر مدار';
+  document.querySelector('.sidebar-footer .user-info strong').textContent = displayName;
+  document.querySelector('.sidebar-footer .user-info p').textContent = profile?.username ? '@' + profile.username : 'حساب مدار';
+  document.querySelector('.sidebar-footer .avatar').textContent = initials(displayName);
+  await loadChats();
 }
 
-function toggleDark(){
-  document.body.classList.toggle("dark");
-  localStorage.setItem("madar_dark",document.body.classList.contains("dark"));
-}
-
-function back(){
-  document.body.classList.remove("chat-open");
-}
-
-function showInfo(){
-  alert("مدار | MADAR\nنسخه اولیه رابط کاربری");
-}
-
-document.getElementById("search").addEventListener("input",renderChats);
-
-if(localStorage.getItem("madar_dark")==="true"){
-  document.body.classList.add("dark");
-}
-
-renderChats();
-
+startApp().catch(error => {
+  console.error(error);
+  showError('مدار نتوانست اطلاعات را بارگذاری کند.\n' + error.message);
+});
 </script>
 
 </body>
