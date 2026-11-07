@@ -440,6 +440,12 @@ body.dark {
     padding:12px;
   }
 }
+
+.filters{display:flex;gap:6px;padding:0 14px 10px;overflow-x:auto}.filter{border:1px solid var(--border);background:var(--bg);color:var(--muted);border-radius:20px;padding:6px 11px;font:inherit;font-size:11px;white-space:nowrap;cursor:pointer}.filter.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.quick-actions{display:flex;gap:6px;padding:0 14px 10px;flex-wrap:wrap}.quick-actions button{border:0;background:var(--primary-light);color:var(--primary);border-radius:9px;padding:7px 9px;font:inherit;font-size:11px;cursor:pointer}
+.modal{display:none;position:fixed;inset:0;background:#10182799;z-index:50;align-items:center;justify-content:center;padding:16px}.modal.open{display:flex}.modal-card{width:min(100%,430px);max-height:90vh;overflow:auto;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:18px;padding:22px;position:relative;box-shadow:0 20px 60px #0003}.modal-card h2{font-size:19px;margin:4px 0 18px}.modal-close{position:absolute;left:14px;top:12px;border:0;background:transparent;color:var(--muted);font-size:25px;cursor:pointer}.modal-card label{display:block;font-size:12px;color:var(--muted);margin:12px 0}.modal-card input,.modal-card textarea{display:block;width:100%;margin-top:6px;border:1px solid var(--border);border-radius:10px;padding:11px;background:var(--bg);color:var(--text);font:inherit;outline:none}.modal-card .check-label{display:flex;align-items:center;gap:8px}.modal-card .check-label input{width:auto;margin:0}.modal-actions{display:flex;gap:9px;margin-top:16px}.primary-btn,.quiet-btn{border:0;border-radius:10px;padding:11px 16px;font:inherit;cursor:pointer}.primary-btn{background:var(--primary);color:#fff}.quiet-btn{background:var(--bg);color:var(--text)}.modal-note{font-size:12px;line-height:1.8;color:var(--muted);margin-top:10px}.chat-kind{font-size:10px;color:var(--primary);margin-top:3px}
+@media(max-width:700px){.filters{padding-top:2px}.quick-actions{padding-bottom:8px}.sidebar-footer{padding:10px}}
+
 </style>
 </head>
 
@@ -467,6 +473,17 @@ body.dark {
     <button class="new-chat" onclick="newChat()">+ گفتگوی جدید</button>
   </div>
 
+  <div class="filters" id="chatFilters">
+    <button class="filter active" data-filter="all">همه</button>
+    <button class="filter" data-filter="private">خصوصی</button>
+    <button class="filter" data-filter="group">گروه‌ها</button>
+    <button class="filter" data-filter="channel">کانال‌ها</button>
+  </div>
+  <div class="quick-actions">
+    <button type="button" id="createGroupBtn">＋ گروه جدید</button>
+    <button type="button" id="createChannelBtn">＋ کانال جدید</button>
+    <button type="button" id="profileBtn">پروفایل من</button>
+  </div>
   <div class="chat-list" id="chatList"></div>
 
   <div class="sidebar-footer">
@@ -507,6 +524,9 @@ body.dark {
 
 </div>
 
+<div class="modal" id="profileModal" aria-hidden="true"><div class="modal-card"><button class="modal-close" data-close="profileModal">×</button><h2>پروفایل من</h2><label>نام نمایشی<input id="profileDisplay" maxlength="50"></label><label>نام کاربری<input id="profileUsername" maxlength="20" dir="ltr"></label><label>درباره من<textarea id="profileBio" maxlength="180" rows="3"></textarea></label><label>نشانی عکس پروفایل<input id="profileAvatar" type="url" placeholder="https://..."></label><div class="modal-actions"><button id="saveProfileBtn" class="primary-btn">ذخیره تغییرات</button><button id="signOutBtn" class="quiet-btn">خروج از حساب</button></div><p class="modal-note" id="profileNotice"></p></div></div>
+<div class="modal" id="createModal" aria-hidden="true"><div class="modal-card"><button class="modal-close" data-close="createModal">×</button><h2 id="createTitle">ساخت گفتگو</h2><label>نام<input id="createName" maxlength="60" required></label><label id="createDescriptionWrap">توضیحات<textarea id="createDescription" maxlength="250" rows="3"></textarea></label><label id="createPublicWrap" class="check-label"><input id="createPublic" type="checkbox"> عمومی باشد (همه کاربران عضو شوند)</label><label id="createMembersWrap">نام کاربری اعضا (با ویرگول جدا کن)<input id="createMembers" placeholder="username1, username2" dir="ltr"></label><div class="modal-actions"><button id="createSubmitBtn" class="primary-btn">ایجاد</button></div><p class="modal-note" id="createNotice"></p></div></div>
+
 <script type="module">
 import { supabase } from './supabase.js';
 
@@ -514,6 +534,9 @@ let currentUser = null;
 let chats = [];
 let activeChat = null;
 let realtimeChannel = null;
+let activeFilter = "all";
+let createMode = "group";
+let myProfile = null;
 
 const chatList = document.getElementById('chatList');
 const messages = document.getElementById('messages');
@@ -542,8 +565,7 @@ function renderChats() {
   const query = document.getElementById('search').value.trim().toLowerCase();
   chatList.innerHTML = '';
 
-  const filtered = chats.filter(chat => getChatName(chat).toLowerCase().includes(query) ||
-    (chat.otherProfile?.username || '').toLowerCase().includes(query));
+  const filtered = chats.filter(chat => { const kind = chat.kind || (chat.is_group ? 'group' : 'private'); const matchesFilter = activeFilter === 'all' || kind === activeFilter; return matchesFilter && (getChatName(chat).toLowerCase().includes(query) || (chat.otherProfile?.username || '').toLowerCase().includes(query)); });
 
   if (!filtered.length) {
     const empty = document.createElement('div');
@@ -566,7 +588,7 @@ function renderChats() {
     const strong = document.createElement('strong');
     strong.textContent = getChatName(chat);
     const preview = document.createElement('p');
-    preview.textContent = last ? last.content : 'شروع گفتگو';
+    preview.textContent = last ? last.content : (chat.kind==='channel'?'کانال':'شروع گفتگو');
     const time = document.createElement('span');
     time.className = 'chat-time';
     time.textContent = last ? formatTime(last.created_at) : '';
@@ -678,7 +700,7 @@ async function loadChats() {
 
   const { data: conversations, error: conversationError } = await supabase
     .from('conversations')
-    .select('id, title, is_group, created_by, created_at')
+    .select('id, title, kind, description, avatar_url, is_public, is_group, created_by, created_at')
     .in('id', ids)
     .order('created_at', { ascending: false });
   if (conversationError) throw conversationError;
@@ -771,7 +793,7 @@ async function newChat() {
     const { data: conversation, error: createError } = await supabase
       .from('conversations')
       .insert({ created_by: currentUser.id, is_group: false })
-      .select('id, title, is_group, created_by, created_at')
+      .select('id, title, kind, description, avatar_url, is_public, is_group, created_by, created_at')
       .single();
     if (createError) throw createError;
 
@@ -788,6 +810,20 @@ async function newChat() {
     showError('ساخت گفتگو ناموفق بود.\n' + error.message);
   }
 }
+
+
+function openModal(id){document.getElementById(id).classList.add('open');document.getElementById(id).setAttribute('aria-hidden','false');}
+function closeModal(id){document.getElementById(id).classList.remove('open');document.getElementById(id).setAttribute('aria-hidden','true');}
+document.querySelectorAll('[data-close]').forEach(b=>b.addEventListener('click',()=>closeModal(b.dataset.close)));
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click',e=>{if(e.target===m)closeModal(m.id)}));
+document.querySelectorAll('.filter').forEach(b=>b.addEventListener('click',()=>{activeFilter=b.dataset.filter;document.querySelectorAll('.filter').forEach(x=>x.classList.toggle('active',x===b));renderChats()}));
+document.getElementById('profileBtn').addEventListener('click',()=>{document.getElementById('profileDisplay').value=myProfile?.display_name||'';document.getElementById('profileUsername').value=myProfile?.username||'';document.getElementById('profileBio').value=myProfile?.bio||'';document.getElementById('profileAvatar').value=myProfile?.avatar_url||'';document.getElementById('profileNotice').textContent='';openModal('profileModal')});
+document.getElementById('saveProfileBtn').addEventListener('click',async()=>{const notice=document.getElementById('profileNotice');const username=document.getElementById('profileUsername').value.trim().toLowerCase();const display_name=document.getElementById('profileDisplay').value.trim();const bio=document.getElementById('profileBio').value.trim();const avatar_url=document.getElementById('profileAvatar').value.trim();if(!/^[a-z0-9_]{3,20}$/.test(username)){notice.textContent='نام کاربری باید ۳ تا ۲۰ حرف انگلیسی، عدد یا زیرخط باشد.';return}if(!display_name){notice.textContent='نام نمایشی را وارد کن.';return}const btn=document.getElementById('saveProfileBtn');btn.disabled=true;try{const {data,error}=await supabase.from('profiles').upsert({id:currentUser.id,username,display_name,bio,avatar_url},{onConflict:'id'}).select().single();if(error)throw error;myProfile=data;document.querySelector('.sidebar-footer .user-info strong').textContent=display_name;document.querySelector('.sidebar-footer .user-info p').textContent='@'+username;document.querySelector('.sidebar-footer .avatar').textContent=initials(display_name);notice.textContent='پروفایل ذخیره شد.';}catch(e){notice.textContent='ذخیره نشد: '+e.message;}finally{btn.disabled=false}});
+document.getElementById('signOutBtn').addEventListener('click',async()=>{if(!confirm('از حساب مدار خارج می‌شوی؟'))return;const {error}=await supabase.auth.signOut();if(error){alert(error.message);return}location.replace('./login.html')});
+function showCreate(mode){createMode=mode;document.getElementById('createTitle').textContent=mode==='group'?'ساخت گروه جدید':'ساخت کانال جدید';document.getElementById('createName').value='';document.getElementById('createDescription').value='';document.getElementById('createMembers').value='';document.getElementById('createPublic').checked=mode==='channel';document.getElementById('createDescriptionWrap').style.display=mode==='channel'?'block':'block';document.getElementById('createPublicWrap').style.display=mode==='channel'?'flex':'none';document.getElementById('createMembersWrap').style.display=mode==='group'?'block':'none';document.getElementById('createNotice').textContent='';openModal('createModal')}
+document.getElementById('createGroupBtn').addEventListener('click',()=>showCreate('group'));
+document.getElementById('createChannelBtn').addEventListener('click',()=>showCreate('channel'));
+document.getElementById('createSubmitBtn').addEventListener('click',async()=>{const notice=document.getElementById('createNotice');const title=document.getElementById('createName').value.trim();const description=document.getElementById('createDescription').value.trim();if(!title){notice.textContent='نام را وارد کن.';return}const btn=document.getElementById('createSubmitBtn');btn.disabled=true;try{const kind=createMode;const is_public=kind==='channel'&&document.getElementById('createPublic').checked;const {data:conv,error}=await supabase.from('conversations').insert({created_by:currentUser.id,title,description,kind,is_group:kind==='group',is_public}).select('id').single();if(error)throw error;const members=[{conversation_id:conv.id,user_id:currentUser.id,role:'owner'}];if(kind==='group'){const names=[...new Set(document.getElementById('createMembers').value.split(',').map(x=>x.trim().replace(/^@/,'').toLowerCase()).filter(Boolean))];if(names.length){const {data:profiles,error:pe}=await supabase.from('profiles').select('id,username').in('username',names);if(pe)throw pe;const found=new Set((profiles||[]).map(p=>p.username.toLowerCase()));const missing=names.filter(n=>!found.has(n));if(missing.length)throw new Error('این نام‌های کاربری پیدا نشدند: '+missing.join(', '));for(const p of profiles||[])if(p.id!==currentUser.id)members.push({conversation_id:conv.id,user_id:p.id,role:'member'})}}const {error:me}=await supabase.from('conversation_members').insert(members);if(me)throw me;closeModal('createModal');await loadChats();await openChat(conv.id);}catch(e){notice.textContent='ساخت انجام نشد: '+e.message;}finally{btn.disabled=false}});
 
 sendForm.addEventListener('submit', async event => {
   event.preventDefault();
@@ -840,10 +876,11 @@ async function startApp() {
   currentUser = session.user;
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('username, display_name')
+    .select('id, username, display_name, avatar_url, bio')
     .eq('id', currentUser.id)
     .maybeSingle();
   if (profileError) throw profileError;
+  myProfile = profile || {};
   const displayName = profile?.display_name || profile?.username || currentUser.email || 'کاربر مدار';
   document.querySelector('.sidebar-footer .user-info strong').textContent = displayName;
   document.querySelector('.sidebar-footer .user-info p').textContent = profile?.username ? '@' + profile.username : 'حساب مدار';
